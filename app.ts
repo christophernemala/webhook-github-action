@@ -5,6 +5,7 @@ import {RenderDeploy, RenderEvent, RenderService, WebhookPayload} from "./render
 import {apifyClient, apifyToken, runActor, getRunDetails, ApifyWebhookPayload, validateApifyWebhook} from "./apify";
 import {processApifyJobs, getJobsForApplication, recordApplication, reportStats, ApifyJobPayload} from "./job-processor";
 import {getStats, getUnappliedJobs} from "./job-storage";
+import {handleSlackCommand, handleSlackInteractive} from "./slack-commands";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -195,6 +196,14 @@ app.post("/jobs/report", async (req: Request, res: Response, next: NextFunction)
         next(error);
     }
 });
+
+// ===== SLACK COMMAND ENDPOINTS =====
+
+// Slack slash commands
+app.post("/slack/command", express.urlencoded({ extended: true }), handleSlackCommand);
+
+// Slack interactive components (buttons, menus)
+app.post("/slack/interactive", express.urlencoded({ extended: true }), handleSlackInteractive);
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Job Automation System - AR/Credit Control/Senior Accountant')
