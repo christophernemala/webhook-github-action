@@ -1,0 +1,70 @@
+{
+  "name": "linkedin-job-scraper",
+  "description": "Scrapes jobs from LinkedIn for AR/Credit Control/Senior Accountant roles in UAE",
+  "version": "1.0.0",
+
+  "config": {
+    "baseUrl": "https://www.linkedin.com/jobs/search/",
+    "searchQueries": [
+      "accounts receivable",
+      "credit control",
+      "collections specialist",
+      "senior accountant",
+      "order to cash",
+      "AR analyst"
+    ],
+    "locations": ["Dubai", "Abu Dhabi", "United Arab Emirates"],
+    "filters": {
+      "datePosted": "past-week",
+      "experienceLevel": ["mid-senior", "associate"],
+      "jobType": "full-time"
+    },
+    "maxPages": 5,
+    "maxJobsPerQuery": 50
+  },
+
+  "credentials": {
+    "email": "${LINKEDIN_EMAIL}",
+    "password": "${LINKEDIN_PASSWORD}"
+  },
+
+  "selectors": {
+    "jobCard": ".job-card-container, .jobs-search-results__list-item",
+    "title": ".job-card-list__title, .job-card-container__link",
+    "company": ".job-card-container__company-name, .artdeco-entity-lockup__subtitle",
+    "location": ".job-card-container__metadata-item, .artdeco-entity-lockup__caption",
+    "description": ".job-card-container__snippet, .jobs-description__content",
+    "applyUrl": ".job-card-list__title a, .job-card-container__link"
+  },
+
+  "antiDetection": {
+    "humanBehavior": true,
+    "randomDelays": {
+      "min": 3000,
+      "max": 8000
+    },
+    "scrollBehavior": true,
+    "mouseMovement": true,
+    "sessionPersistence": true,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  },
+
+  "webhook": {
+    "url": "${WEBHOOK_URL}/jobs/webhook",
+    "payload": {
+      "source": "linkedin.com",
+      "jobs": "{{jobs}}"
+    }
+  },
+
+  "schedule": {
+    "cron": "0 21 * * *",
+    "timezone": "Asia/Dubai"
+  },
+
+  "notes": {
+    "rateLimit": "LinkedIn is strict - minimum 5 second delays",
+    "login": "Required for full job details",
+    "easyApply": "Can be automated for Easy Apply jobs"
+  }
+}

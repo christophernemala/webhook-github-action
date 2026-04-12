@@ -1,0 +1,70 @@
+{
+  "name": "indeed-job-scraper",
+  "description": "Scrapes jobs from Indeed UAE for AR/Credit Control/Senior Accountant roles",
+  "version": "1.0.0",
+
+  "config": {
+    "baseUrl": "https://ae.indeed.com/jobs",
+    "searchQueries": [
+      "accounts receivable",
+      "credit control",
+      "collections",
+      "senior accountant",
+      "order to cash",
+      "finance executive"
+    ],
+    "locations": ["Dubai", "Abu Dhabi"],
+    "filters": {
+      "datePosted": "7",
+      "jobType": "fulltime"
+    },
+    "maxPages": 5,
+    "maxJobsPerQuery": 50
+  },
+
+  "credentials": {
+    "email": "${INDEED_EMAIL}",
+    "password": "${INDEED_PASSWORD}"
+  },
+
+  "selectors": {
+    "jobCard": ".job_seen_beacon, .jobsearch-ResultsList > li",
+    "title": ".jobTitle a, h2.jobTitle span",
+    "company": ".companyName, [data-testid='company-name']",
+    "location": ".companyLocation, [data-testid='text-location']",
+    "description": ".job-snippet, .underShelfFooter",
+    "applyUrl": ".jobTitle a",
+    "salary": ".salary-snippet, [data-testid='attribute_snippet_testid']",
+    "postedDate": ".date"
+  },
+
+  "antiDetection": {
+    "humanBehavior": true,
+    "randomDelays": {
+      "min": 2500,
+      "max": 6000
+    },
+    "scrollBehavior": true,
+    "mouseMovement": true,
+    "cookieConsent": true,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  },
+
+  "webhook": {
+    "url": "${WEBHOOK_URL}/jobs/webhook",
+    "payload": {
+      "source": "indeed.ae",
+      "jobs": "{{jobs}}"
+    }
+  },
+
+  "schedule": {
+    "cron": "0 22 * * *",
+    "timezone": "Asia/Dubai"
+  },
+
+  "notes": {
+    "indeedApply": "Can automate Indeed Apply for eligible jobs",
+    "resumeRequired": "Upload resume for quick apply"
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "name": "naukrigulf-job-scraper",
+  "description": "Scrapes jobs from NaukriGulf for AR/Credit Control/Senior Accountant roles in UAE",
+  "version": "1.0.0",
+
+  "config": {
+    "baseUrl": "https://www.naukrigulf.com/",
+    "searchQueries": [
+      "accounts-receivable-jobs",
+      "credit-control-jobs",
+      "collections-jobs",
+      "senior-accountant-jobs",
+      "finance-executive-jobs",
+      "ar-analyst-jobs"
+    ],
+    "locations": ["dubai", "abu-dhabi", "uae"],
+    "filters": {
+      "experience": "3-7",
+      "freshness": "7"
+    },
+    "maxPages": 5,
+    "maxJobsPerQuery": 50
+  },
+
+  "credentials": {
+    "email": "${NAUKRIGULF_EMAIL}",
+    "password": "${NAUKRIGULF_PASSWORD}"
+  },
+
+  "selectors": {
+    "jobCard": ".srp-tuple, .jobTuple",
+    "title": ".desig, .job-title a",
+    "company": ".org, .company-name",
+    "location": ".loc, .location",
+    "description": ".job-description, .desc",
+    "applyUrl": ".desig a, .job-title a",
+    "salary": ".salary",
+    "experience": ".exp"
+  },
+
+  "antiDetection": {
+    "humanBehavior": true,
+    "randomDelays": {
+      "min": 2000,
+      "max": 5000
+    },
+    "scrollBehavior": true,
+    "mouseMovement": true,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  },
+
+  "webhook": {
+    "url": "${WEBHOOK_URL}/jobs/webhook",
+    "payload": {
+      "source": "naukrigulf.com",
+      "jobs": "{{jobs}}"
+    }
+  },
+
+  "schedule": {
+    "cron": "30 21 * * *",
+    "timezone": "Asia/Dubai"
+  },
+
+  "notes": {
+    "quickApply": "Supports quick apply for registered users",
+    "profileRequired": "Full profile needed for best results"
+  }
+}
