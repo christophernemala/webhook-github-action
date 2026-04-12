@@ -1,0 +1,60 @@
+{
+  "name": "bayt-job-scraper",
+  "description": "Scrapes jobs from Bayt.com for AR/Credit Control/Senior Accountant roles in UAE",
+  "version": "1.0.0",
+
+  "config": {
+    "baseUrl": "https://www.bayt.com/en/uae/jobs/",
+    "searchQueries": [
+      "accounts-receivable-jobs",
+      "credit-control-jobs",
+      "collections-jobs",
+      "senior-accountant-jobs",
+      "finance-executive-jobs",
+      "order-to-cash-jobs"
+    ],
+    "locations": ["dubai", "abu-dhabi", "uae"],
+    "maxPages": 5,
+    "maxJobsPerQuery": 50
+  },
+
+  "selectors": {
+    "jobCard": "[data-js-job]",
+    "title": "h2.jb-title a",
+    "company": ".jb-company a",
+    "location": ".jb-loc span",
+    "description": ".jb-description",
+    "applyUrl": "h2.jb-title a",
+    "postedDate": ".jb-date"
+  },
+
+  "antiDetection": {
+    "humanBehavior": true,
+    "randomDelays": {
+      "min": 2000,
+      "max": 5000
+    },
+    "scrollBehavior": true,
+    "mouseMovement": true,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  },
+
+  "webhook": {
+    "url": "${WEBHOOK_URL}/jobs/webhook",
+    "payload": {
+      "source": "bayt.com",
+      "jobs": "{{jobs}}"
+    }
+  },
+
+  "schedule": {
+    "cron": "0 22 * * *",
+    "timezone": "Asia/Dubai"
+  },
+
+  "notes": {
+    "login": "Use BAYT_EMAIL and BAYT_PASSWORD env vars for authenticated scraping",
+    "rateLimit": "Respect 3 second minimum between requests",
+    "storage": "Results sent to webhook, also stored in Apify dataset"
+  }
+}

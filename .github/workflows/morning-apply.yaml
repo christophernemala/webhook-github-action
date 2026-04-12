@@ -1,0 +1,79 @@
+# Morning Job Application Agent
+# Runs at 5 AM Dubai time (1 AM UTC)
+# Fetches qualified jobs and applies with human-like behavior
+
+name: Morning Apply Agent
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # 5 AM Dubai (UTC+4)
+  workflow_dispatch:      # Manual trigger
+    inputs:
+      max_applications:
+        description: 'Maximum applications to submit'
+        required: false
+        default: '20'
+      dry_run:
+        description: 'Dry run (no actual applications)'
+        required: false
+        default: 'false'
+
+env:
+  WEBHOOK_BASE_URL: ${{ secrets.WEBHOOK_BASE_URL }}
+  BAYT_EMAIL: ${{ secrets.BAYT_EMAIL }}
+  BAYT_PASSWORD: ${{ secrets.BAYT_PASSWORD }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright
+        run: pnpm exec playwright install chromium
+
+      - name: Fetch pending jobs
+        id: fetch_jobs
+        run: |
+          MAX_APPS=${{ github.event.inputs.max_applications || '20' }}
+          RESPONSE=$(curl -s "${WEBHOOK_BASE_URL}/jobs/pending?limit=${MAX_APPS}")
+          echo "jobs=$RESPONSE" >> $GITHUB_OUTPUT
+          COUNT=$(echo $RESPONSE | jq '.count')
+          echo "Found $COUNT pending jobs"
+
+      - name: Apply to jobs
+        if: steps.fetch_jobs.outputs.jobs != '' && github.event.inputs.dry_run != 'true'
+        run: |
+          node dist/apply-agent.js
+        env:
+          JOBS_DATA: ${{ steps.fetch_jobs.outputs.jobs }}
+          MAX_APPLICATIONS: ${{ github.event.inputs.max_applications || '20' }}
+
+      - name: Report results
+        if: always()
+        run: |
+          curl -X POST "${WEBHOOK_BASE_URL}/jobs/report"
+
+      - name: Notify Slack on failure
+        if: failure()
+        run: |
+          curl -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d '{"text":"Morning Apply Agent failed. Check GitHub Actions logs."}'

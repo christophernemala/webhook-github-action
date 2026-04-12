@@ -3,6 +3,8 @@ import express, {NextFunction, Request, Response} from "express";
 import {Webhook, WebhookUnbrandedRequiredHeaders, WebhookVerificationError} from "standardwebhooks"
 import {RenderDeploy, RenderEvent, RenderService, WebhookPayload} from "./render";
 import {apifyClient, apifyToken, runActor, getRunDetails, ApifyWebhookPayload, validateApifyWebhook} from "./apify";
+import {processApifyJobs, getJobsForApplication, recordApplication, reportStats, ApifyJobPayload} from "./job-processor";
+import {getStats, getUnappliedJobs} from "./job-storage";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -130,8 +132,72 @@ app.get("/apify/run/:runId", async (req: Request, res: Response, next: NextFunct
     }
 });
 
+// ===== JOB AUTOMATION ENDPOINTS =====
+
+// Receive jobs from Apify scraper
+app.post("/jobs/webhook", express.json(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const payload: ApifyJobPayload = req.body;
+
+        if (!payload.jobs || !Array.isArray(payload.jobs)) {
+            res.status(400).send({error: 'Invalid payload: jobs array required'}).end();
+            return;
+        }
+
+        const result = await processApifyJobs(payload);
+        res.status(200).send(result).end();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Get jobs ready for application (for morning agent)
+app.get("/jobs/pending", (req: Request, res: Response) => {
+    const limit = parseInt(req.query.limit as string) || 20;
+    const jobs = getJobsForApplication(limit);
+    res.status(200).send({jobs, count: jobs.length}).end();
+});
+
+// Get all stored jobs
+app.get("/jobs", (req: Request, res: Response) => {
+    const minScore = parseInt(req.query.minScore as string) || 0;
+    const jobs = getUnappliedJobs(minScore);
+    res.status(200).send({jobs, count: jobs.length}).end();
+});
+
+// Get job stats
+app.get("/jobs/stats", (req: Request, res: Response) => {
+    const stats = getStats();
+    res.status(200).send(stats).end();
+});
+
+// Record application result (called by apply agent)
+app.post("/jobs/applied", express.json(), (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {job, status} = req.body;
+        if (!job) {
+            res.status(400).send({error: 'Job required'}).end();
+            return;
+        }
+        recordApplication(job, status || 'submitted');
+        res.status(200).send({success: true}).end();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Trigger stats report to Slack
+app.post("/jobs/report", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        await reportStats();
+        res.status(200).send({success: true}).end();
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.get('/', (req: Request, res: Response) => {
-  res.send('Render Webhook GitHub Action is listening!')
+  res.send('Job Automation System - AR/Credit Control/Senior Accountant')
 })
 
 const server = app.listen(port, () => console.log(`Example app listening on port ${port}!`));

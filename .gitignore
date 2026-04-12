@@ -131,3 +131,12 @@ dist
 
 #IntelliJ
 .idea
+
+# Job data storage
+data/
+jobs.json
+applied.json
+
+# Playwright
+playwright-report/
+test-results/

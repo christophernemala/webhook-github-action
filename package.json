@@ -1,23 +1,26 @@
 {
   "name": "webhook-github-action",
-  "version": "1.0.0",
-  "description": "Render Webhook Receiver Example",
+  "version": "2.0.0",
+  "description": "Job Automation System - AR/Credit Control/Senior Accountant",
   "main": "app.ts",
-  "repository": "https://github.com/render-examples/webhook-github-action",
-  "author": "Render Developers",
+  "repository": "https://github.com/christophernemala/webhook-github-action",
+  "author": "Christopher Nemala",
   "license": "MIT",
   "private": false,
   "scripts": {
     "build": "pnpm exec tsc",
     "start": "node dist/app.js",
     "dev": "tsnd --respawn app.ts",
-    "typecheck": "tsc --noEmit --pretty"
+    "typecheck": "tsc --noEmit --pretty",
+    "apply": "node dist/apply-agent.js",
+    "scrape": "node dist/apify-actors/bayt-scraper.js"
   },
-  "keywords": [],
+  "keywords": ["job-automation", "ar", "credit-control", "senior-accountant", "apify", "bayt"],
   "dependencies": {
     "@octokit/core": "^6.1.4",
     "apify-client": "^2.22.3",
     "express": "^5.0.1",
+    "playwright": "^1.42.0",
     "standardwebhooks": "^1.0.0"
   },
   "devDependencies": {
