@@ -3,9 +3,6 @@ import express, {NextFunction, Request, Response} from "express";
 import {Webhook, WebhookUnbrandedRequiredHeaders, WebhookVerificationError} from "standardwebhooks"
 import {RenderDeploy, RenderEvent, RenderService, WebhookPayload} from "./render";
 import {apifyClient, apifyToken, runActor, getRunDetails, ApifyWebhookPayload, validateApifyWebhook} from "./apify";
-import {processApifyJobs, getJobsForApplication, recordApplication, reportStats, ApifyJobPayload} from "./job-processor";
-import {getStats, getUnappliedJobs} from "./job-storage";
-import {handleSlackCommand, handleSlackInteractive} from "./slack-commands";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -133,80 +130,8 @@ app.get("/apify/run/:runId", async (req: Request, res: Response, next: NextFunct
     }
 });
 
-// ===== JOB AUTOMATION ENDPOINTS =====
-
-// Receive jobs from Apify scraper
-app.post("/jobs/webhook", express.json(), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const payload: ApifyJobPayload = req.body;
-
-        if (!payload.jobs || !Array.isArray(payload.jobs)) {
-            res.status(400).send({error: 'Invalid payload: jobs array required'}).end();
-            return;
-        }
-
-        const result = await processApifyJobs(payload);
-        res.status(200).send(result).end();
-    } catch (error) {
-        next(error);
-    }
-});
-
-// Get jobs ready for application (for morning agent)
-app.get("/jobs/pending", (req: Request, res: Response) => {
-    const limit = parseInt(req.query.limit as string) || 20;
-    const jobs = getJobsForApplication(limit);
-    res.status(200).send({jobs, count: jobs.length}).end();
-});
-
-// Get all stored jobs
-app.get("/jobs", (req: Request, res: Response) => {
-    const minScore = parseInt(req.query.minScore as string) || 0;
-    const jobs = getUnappliedJobs(minScore);
-    res.status(200).send({jobs, count: jobs.length}).end();
-});
-
-// Get job stats
-app.get("/jobs/stats", (req: Request, res: Response) => {
-    const stats = getStats();
-    res.status(200).send(stats).end();
-});
-
-// Record application result (called by apply agent)
-app.post("/jobs/applied", express.json(), (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const {job, status} = req.body;
-        if (!job) {
-            res.status(400).send({error: 'Job required'}).end();
-            return;
-        }
-        recordApplication(job, status || 'submitted');
-        res.status(200).send({success: true}).end();
-    } catch (error) {
-        next(error);
-    }
-});
-
-// Trigger stats report to Slack
-app.post("/jobs/report", async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        await reportStats();
-        res.status(200).send({success: true}).end();
-    } catch (error) {
-        next(error);
-    }
-});
-
-// ===== SLACK COMMAND ENDPOINTS =====
-
-// Slack slash commands
-app.post("/slack/command", express.urlencoded({ extended: true }), handleSlackCommand);
-
-// Slack interactive components (buttons, menus)
-app.post("/slack/interactive", express.urlencoded({ extended: true }), handleSlackInteractive);
-
 app.get('/', (req: Request, res: Response) => {
-  res.send('Job Automation System - AR/Credit Control/Senior Accountant')
+  res.send('Render Webhook GitHub Action is listening!')
 })
 
 const server = app.listen(port, () => console.log(`Example app listening on port ${port}!`));
@@ -222,6 +147,13 @@ function validateWebhook(req: Request) {
     wh.verify(req.body, headers);
 }
 
+/**
+ * Handle an incoming Render webhook payload and, for successful deploys of the configured repository, trigger the configured GitHub Actions workflow.
+ *
+ * This function processes Render webhook events, verifies that a deploy finished successfully, ignores image-backed deploys and deploys for other repositories, and dispatches the GitHub workflow when appropriate. All errors are caught and logged.
+ *
+ * @param payload - The Render webhook payload to handle
+ */
 async function handleWebhook(payload: WebhookPayload) {
     try {
         switch (payload.type) {
@@ -259,6 +191,14 @@ async function handleWebhook(payload: WebhookPayload) {
     }
 }
 
+/**
+ * Handle incoming Apify webhook payloads and act on actor run events.
+ *
+ * Dispatches a GitHub workflow when an actor run succeeds (if GitHub credentials and repository config are available)
+ * and records other run outcomes via logging.
+ *
+ * @param payload - The Apify webhook payload containing `eventType` and `resource` details for the actor run
+ */
 async function handleApifyWebhook(payload: ApifyWebhookPayload) {
     try {
         console.log(`Received Apify webhook: ${payload.eventType} for run ${payload.resource.id}`);
@@ -285,6 +225,12 @@ async function handleApifyWebhook(payload: ApifyWebhookPayload) {
     }
 }
 
+/**
+ * Dispatches the configured GitHub Actions workflow with Apify run details.
+ *
+ * @param runId - The Apify run ID to pass as the `apifyRunId` workflow input
+ * @param actorId - The Apify actor ID to pass as the `apifyActorId` workflow input
+ */
 async function triggerWorkflowForApify(runId: string, actorId: string) {
     await octokit.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
         owner: githubOwnerName,
@@ -301,6 +247,12 @@ async function triggerWorkflowForApify(runId: string, actorId: string) {
     });
 }
 
+/**
+ * Dispatches the configured GitHub Actions workflow with the given service ID as input on the specified ref.
+ *
+ * @param serviceID - The service identifier to pass to the workflow as the `serviceID` input
+ * @param branch - The git ref (branch name or commit SHA) to run the workflow against
+ */
 async function triggerWorkflow(serviceID: string, branch: string) {
     await octokit.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
         owner: githubOwnerName,
