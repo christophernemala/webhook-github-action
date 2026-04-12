@@ -2,6 +2,7 @@ import {Octokit} from "@octokit/core";
 import express, {NextFunction, Request, Response} from "express";
 import {Webhook, WebhookUnbrandedRequiredHeaders, WebhookVerificationError} from "standardwebhooks"
 import {RenderDeploy, RenderEvent, RenderService, WebhookPayload} from "./render";
+import {apifyClient, apifyToken, runActor, getRunDetails, ApifyWebhookPayload, validateApifyWebhook} from "./apify";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -33,6 +34,15 @@ if (!githubAPIToken || !githubOwnerName || !githubRepoName) {
 
 const githubWorkflowID = process.env.GITHUB_WORKFLOW_ID || 'example.yaml';
 
+// Apify configuration (optional)
+const apifyActorId = process.env.APIFY_ACTOR_ID || '';
+
+if (apifyToken) {
+    console.log('Apify integration enabled');
+} else {
+    console.log('Apify integration disabled - APIFY_API_TOKEN not set');
+}
+
 const octokit = new Octokit({
     auth: githubAPIToken
 })
@@ -58,6 +68,65 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
         res.status(400).send({}).end()
     } else {
         res.status(500).send({}).end()
+    }
+});
+
+// Apify webhook endpoint
+app.post("/apify/webhook", express.json(), (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const signature = req.header("X-Apify-Webhook-Secret");
+
+        if (!validateApifyWebhook(JSON.stringify(req.body), signature)) {
+            console.log('Invalid Apify webhook signature');
+            res.status(401).send({error: 'Invalid signature'}).end();
+            return;
+        }
+
+        const payload: ApifyWebhookPayload = req.body;
+        res.status(200).send({received: true}).end();
+
+        // Handle Apify webhook async
+        handleApifyWebhook(payload);
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Trigger an Apify actor
+app.post("/apify/run", express.json(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!apifyClient) {
+            res.status(503).send({error: 'Apify not configured'}).end();
+            return;
+        }
+
+        const { actorId, input } = req.body;
+        const targetActor = actorId || apifyActorId;
+
+        if (!targetActor) {
+            res.status(400).send({error: 'No actor ID provided'}).end();
+            return;
+        }
+
+        const runId = await runActor(targetActor, input);
+        res.status(200).send({runId, actorId: targetActor}).end();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Get Apify run status
+app.get("/apify/run/:runId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!apifyClient) {
+            res.status(503).send({error: 'Apify not configured'}).end();
+            return;
+        }
+
+        const details = await getRunDetails(req.params.runId);
+        res.status(200).send(details).end();
+    } catch (error) {
+        next(error);
     }
 });
 
@@ -113,6 +182,48 @@ async function handleWebhook(payload: WebhookPayload) {
     } catch (error) {
         console.error(error)
     }
+}
+
+async function handleApifyWebhook(payload: ApifyWebhookPayload) {
+    try {
+        console.log(`Received Apify webhook: ${payload.eventType} for run ${payload.resource.id}`);
+
+        switch (payload.eventType) {
+            case 'ACTOR.RUN.SUCCEEDED':
+                console.log(`Actor run succeeded: ${payload.resource.id}`);
+                // Trigger GitHub workflow on successful actor run
+                if (githubAPIToken && githubOwnerName && githubRepoName) {
+                    await triggerWorkflowForApify(payload.resource.id, payload.resource.actId);
+                }
+                break;
+            case 'ACTOR.RUN.FAILED':
+                console.log(`Actor run failed: ${payload.resource.id}`);
+                break;
+            case 'ACTOR.RUN.TIMED_OUT':
+                console.log(`Actor run timed out: ${payload.resource.id}`);
+                break;
+            default:
+                console.log(`Unhandled Apify event: ${payload.eventType}`);
+        }
+    } catch (error) {
+        console.error('Error handling Apify webhook:', error);
+    }
+}
+
+async function triggerWorkflowForApify(runId: string, actorId: string) {
+    await octokit.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
+        owner: githubOwnerName,
+        repo: githubRepoName,
+        workflow_id: githubWorkflowID,
+        ref: 'main',
+        inputs: {
+            apifyRunId: runId,
+            apifyActorId: actorId
+        },
+        headers: {
+            'X-GitHub-Api-Version': '2022-11-28'
+        }
+    });
 }
 
 async function triggerWorkflow(serviceID: string, branch: string) {

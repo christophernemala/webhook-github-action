@@ -16,6 +16,7 @@
   "keywords": [],
   "dependencies": {
     "@octokit/core": "^6.1.4",
+    "apify-client": "^2.22.3",
     "express": "^5.0.1",
     "standardwebhooks": "^1.0.0"
   },
