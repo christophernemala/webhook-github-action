@@ -8,10 +8,21 @@ on:
       serviceID:
         type: string
         description: 'Render Service ID to deploy (e.g. srv-xxx)'
+        required: false
+      apifyRunId:
+        type: string
+        description: 'Apify Run ID (from job scraper)'
+        required: false
+      apifyActorId:
+        type: string
+        description: 'Apify Actor ID'
+        required: false
 
 jobs:
+  # Render deploy job - only runs if serviceID is provided
   deploy-service:
     runs-on: ubuntu-latest
+    if: ${{ inputs.serviceID != '' }}
     steps:
       - name: Install Render CLI
         run: |
@@ -22,3 +33,16 @@ jobs:
           CI: true
         run: |
           render deploys create ${{ inputs.serviceID }} --output json --confirm
+
+  # Apify completion job - only runs if apifyRunId is provided
+  process-apify-results:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.apifyRunId != '' }}
+    steps:
+      - name: Log Apify completion
+        run: |
+          echo "Apify run completed: ${{ inputs.apifyRunId }}"
+          echo "Actor: ${{ inputs.apifyActorId }}"
+      - name: Notify completion
+        run: |
+          echo "Apify job scraping completed. Results sent to webhook."
