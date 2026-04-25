@@ -2,11 +2,15 @@
   "name": "webhook-github-action",
   "version": "1.0.0",
   "description": "Render Webhook Receiver Example",
-  "main": "app.ts",
-  "repository": "https://github.com/render-examples/webhook-github-action",
+  "main": "dist/app.js",
+  "repository": "https://github.com/christophernemala/webhook-github-action",
   "author": "Render Developers",
   "license": "MIT",
   "private": false,
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "build": "pnpm exec tsc",
     "start": "node dist/app.js",
