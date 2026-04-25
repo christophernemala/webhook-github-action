@@ -14,7 +14,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Trigger timestamp: 2026-04-25T00:00:00+04:00"
+          echo "Trigger timestamp: 2026-04-25T00:05:00+04:00"
 
           RESPONSE=$(curl -sS -w "\nHTTP_STATUS:%{http_code}\n" \
             -X POST "https://webhook-github-action-p3wi.onrender.com/apify/run" \
