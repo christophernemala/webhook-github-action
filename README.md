@@ -1,44 +1,147 @@
-# Example to Trigger GitHub Actions from a Render Webhook
+# Webhook GitHub Action with Apify Job Scraper
 
-This example triggers a GitHub Action workflow that creates a deploy when a deploy ended webhook is received for a specific service.
-While this specific example GitHub Action triggers another deploy, you may also want to:
-- Run end-to-end tests
-- Clear a CDN cache to serve the latest content
-- Notify a monitoring system about new deployment details
-- Sync data or run other post deployment migrations
+This repository contains two automation paths:
 
-## Prerequisites
-If you haven't already, [sign up for a Render account](https://dashboard.render.com/register).
-Creating webhooks on Render requires a Professional plan or higher. You can [view and upgrade your plan](https://dashboard.render.com/billing/update-plan) in the Render Dashboard.
+1. A Render webhook receiver that can trigger GitHub workflows after Render deploy events.
+2. A GitHub Actions workflow that can run an Apify job scraper directly.
 
-## Deploy to Render
+## Apify Job Scraper
 
-1. Use the button below to deploy to Render </br>
-<a href="https://render.com/deploy?repo=https://github.com/render-examples/webhook-github-action/tree/main"><img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render"></a>
-2. Follow the [Render documentation](https://render.com/docs/webhooks) to create a webhook with the URL from your service and `/webhook` path that is triggered upon only the `DeployEnded` event. Save the signing secret as the `RENDER_WEBHOOK_SECRET` environment variable.
-3. Follow the [Render documentation](https://render.com/docs/api#1-create-an-api-key) to create a Render API Key. Save the key as the `RENDER_API_KEY` environment variable.
-4. Follow [the GitHub documentation](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository) to create a GitHub Action secret named `RENDER_API_KEY` in your GitHub repo with the Render API key you created.
-5. Follow [the GitHub documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) to create a GitHub API token with read/write permissions for `Actions`. Save the token as the `GITHUB_API_TOKEN` environment variable.
-6. Create a GitHub workflow with a dispatch trigger as shown in the [example](./.github/workflows/example.yaml). You can check out [Git Hub Actions Documentation](https://docs.github.com/en/actions) for more information.
-7. Set the following environment variables:
-    - `RENDER_WEBHOOK_SECRET` environment variable to the secret from the webhook created in step 2
-    - `RENDER_API_KEY` to the key created in step 3
-    - `GITHUB_API_TOKEN` to the token created in step 4
-    - `GITHUB_OWNER_NAME` to the owner of the GitHub repo the workflow is in (ex. `render-examples`)
-    - `GITHUB_REPO_NAME` to the GitHub repo the workflow is in (ex. `webhook-github-action`)
-    - `GITHUB_WORKFLOW_ID` to the ID or filename of the workflow to trigger (ex. `example.yaml`)
-8. Trigger a service deploy and watch the GitHub workflow get triggered.
+Workflow file:
 
-## Developing
+```text
+.github/workflows/run-apify-jobs.yml
+```
 
-Once you've created a project and installed dependencies with `pnpm install`, start a development server:
+The workflow calls Apify directly:
+
+```text
+https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/runs
+```
+
+It searches UAE finance jobs using these inputs:
+
+```text
+Location: Dubai, Abu Dhabi, Sharjah
+Roles: Accounts Receivable, Credit Controller, Collections Executive, Order to Cash, O2C, Billing Executive, Revenue Assurance, Finance Operations
+Boards: LinkedIn, NaukriGulf, Bayt, Indeed UAE
+Salary: AED 10,000 minimum, AED 14,000 target
+Freshness: Last 7 days
+Max jobs: 100
+```
+
+## Required GitHub Secrets for Apify
+
+Go to:
+
+```text
+GitHub repository
+Settings
+Secrets and variables
+Actions
+New repository secret
+```
+
+Add these secrets:
+
+```text
+APIFY_API_TOKEN
+APIFY_ACTOR_ID
+```
+
+Do not commit token values into this repository.
+
+## How to Run the Apify Scraper
+
+Go to:
+
+```text
+GitHub repository
+Actions
+Run Apify Job Scraper
+Run workflow
+```
+
+If GitHub shows an enable prompt, click:
+
+```text
+I understand my workflows, go ahead and enable them
+```
+
+## Render Deployment
+
+Render service:
+
+```text
+srv-d7e0m5nlk1mc73f2m96g
+```
+
+Render URL:
+
+```text
+https://webhook-github-action-p3wi.onrender.com
+```
+
+Build command:
+
+```bash
+pnpm install && pnpm run build
+```
+
+Start command:
+
+```bash
+pnpm run start
+```
+
+Health checks:
+
+```text
+/
+/health
+```
+
+## Required Render Environment Variables
+
+```text
+RENDER_WEBHOOK_SECRET
+RENDER_API_KEY
+GITHUB_API_TOKEN
+GITHUB_OWNER_NAME
+GITHUB_REPO_NAME
+```
+
+Optional Render variables:
+
+```text
+GITHUB_WORKFLOW_ID
+APIFY_API_TOKEN
+APIFY_WEBHOOK_SECRET
+APIFY_ACTOR_ID
+```
+
+## Development
+
+Install dependencies:
+
+```bash
+pnpm install
+```
+
+Run development server:
 
 ```bash
 pnpm run dev
 ```
 
-## Building
+Build:
 
 ```bash
 pnpm run build
+```
+
+Start production build:
+
+```bash
+pnpm run start
 ```
