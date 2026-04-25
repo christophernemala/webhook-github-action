@@ -1,0 +1,53 @@
+name: Run Apify Job Scraper
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/run-apify-jobs.yml
+
+jobs:
+  run-apify-job-scraper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Apify job scraper through Render service
+        run: |
+          set -euo pipefail
+
+          RESPONSE=$(curl -sS -w "\nHTTP_STATUS:%{http_code}\n" \
+            -X POST "https://webhook-github-action-p3wi.onrender.com/apify/run" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "input": {
+                "country": "United Arab Emirates",
+                "location": "Dubai, Abu Dhabi, Sharjah",
+                "keywords": [
+                  "Accounts Receivable",
+                  "Credit Controller",
+                  "Collections Executive",
+                  "Order to Cash",
+                  "O2C",
+                  "Billing Executive",
+                  "Revenue Assurance",
+                  "Finance Operations"
+                ],
+                "salaryMinAED": 10000,
+                "salaryTargetAED": 14000,
+                "jobBoards": [
+                  "LinkedIn",
+                  "NaukriGulf",
+                  "Bayt",
+                  "Indeed UAE"
+                ],
+                "maxJobs": 100,
+                "freshness": "last 7 days"
+              }
+            }')
+
+          echo "$RESPONSE"
+          STATUS=$(echo "$RESPONSE" | sed -n 's/^HTTP_STATUS://p')
+
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 300 ]; then
+            echo "Apify run trigger failed with HTTP status $STATUS"
+            exit 1
+          fi
