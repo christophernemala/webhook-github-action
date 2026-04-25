@@ -9,41 +9,59 @@ on:
 jobs:
   run-apify-job-scraper:
     runs-on: ubuntu-latest
+    env:
+      APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
+      APIFY_ACTOR_ID: ${{ secrets.APIFY_ACTOR_ID }}
     steps:
-      - name: Trigger Apify job scraper through Render service
+      - name: Validate Apify secrets
         run: |
           set -euo pipefail
 
-          echo "Trigger timestamp: 2026-04-25T00:05:00+04:00"
+          if [ -z "${APIFY_API_TOKEN:-}" ]; then
+            echo "Missing GitHub secret: APIFY_API_TOKEN"
+            exit 1
+          fi
+
+          if [ -z "${APIFY_ACTOR_ID:-}" ]; then
+            echo "Missing GitHub secret: APIFY_ACTOR_ID"
+            exit 1
+          fi
+
+          echo "Apify secrets are present."
+
+      - name: Trigger Apify job scraper directly
+        run: |
+          set -euo pipefail
+
+          echo "Trigger timestamp: 2026-04-25T00:10:00+04:00"
 
           RESPONSE=$(curl -sS -w "\nHTTP_STATUS:%{http_code}\n" \
-            -X POST "https://webhook-github-action-p3wi.onrender.com/apify/run" \
+            -X POST "https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/runs?waitForFinish=0" \
+            -H "Authorization: Bearer ${APIFY_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -d '{
-              "input": {
-                "country": "United Arab Emirates",
-                "location": "Dubai, Abu Dhabi, Sharjah",
-                "keywords": [
-                  "Accounts Receivable",
-                  "Credit Controller",
-                  "Collections Executive",
-                  "Order to Cash",
-                  "O2C",
-                  "Billing Executive",
-                  "Revenue Assurance",
-                  "Finance Operations"
-                ],
-                "salaryMinAED": 10000,
-                "salaryTargetAED": 14000,
-                "jobBoards": [
-                  "LinkedIn",
-                  "NaukriGulf",
-                  "Bayt",
-                  "Indeed UAE"
-                ],
-                "maxJobs": 100,
-                "freshness": "last 7 days"
-              }
+              "country": "United Arab Emirates",
+              "location": "Dubai, Abu Dhabi, Sharjah",
+              "keywords": [
+                "Accounts Receivable",
+                "Credit Controller",
+                "Collections Executive",
+                "Order to Cash",
+                "O2C",
+                "Billing Executive",
+                "Revenue Assurance",
+                "Finance Operations"
+              ],
+              "salaryMinAED": 10000,
+              "salaryTargetAED": 14000,
+              "jobBoards": [
+                "LinkedIn",
+                "NaukriGulf",
+                "Bayt",
+                "Indeed UAE"
+              ],
+              "maxJobs": 100,
+              "freshness": "last 7 days"
             }')
 
           echo "$RESPONSE"
@@ -53,3 +71,20 @@ jobs:
             echo "Apify run trigger failed with HTTP status $STATUS"
             exit 1
           fi
+
+          RUN_ID=$(echo "$RESPONSE" | python3 -c 'import sys,json; raw=sys.stdin.read().split("\nHTTP_STATUS:")[0]; print(json.loads(raw).get("data", {}).get("id", ""))')
+          DATASET_ID=$(echo "$RESPONSE" | python3 -c 'import sys,json; raw=sys.stdin.read().split("\nHTTP_STATUS:")[0]; print(json.loads(raw).get("data", {}).get("defaultDatasetId", ""))')
+
+          echo "Apify run started successfully."
+          echo "Run ID: ${RUN_ID}"
+          echo "Default Dataset ID: ${DATASET_ID}"
+
+      - name: Show latest Apify run status
+        run: |
+          set -euo pipefail
+
+          RESPONSE=$(curl -sS \
+            -H "Authorization: Bearer ${APIFY_API_TOKEN}" \
+            "https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/runs?limit=1&desc=1")
+
+          echo "$RESPONSE" | python3 -m json.tool
