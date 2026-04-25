@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Trigger timestamp: 2026-04-25T00:10:00+04:00"
+          echo "Trigger timestamp: 2026-04-25T00:20:00+04:00"
 
           RESPONSE=$(curl -sS -w "\nHTTP_STATUS:%{http_code}\n" \
             -X POST "https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/runs?waitForFinish=0" \
