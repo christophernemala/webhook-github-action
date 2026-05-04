@@ -1,4 +1,5 @@
 import { ApifyClient } from 'apify-client';
+import crypto from 'crypto';
 
 // Apify Configuration
 export const apifyToken = process.env.APIFY_API_TOKEN || '';
@@ -39,7 +40,7 @@ export async function runActor(actorId: string, input?: Record<string, unknown>)
     }
 
     try {
-        const run = await apifyClient.actor(actorId).call(input);
+        const run = await apifyClient.actor(actorId).call(input || {});
         console.log(`Started Apify actor ${actorId}, run ID: ${run.id}`);
         return run.id;
     } catch (error) {
@@ -56,7 +57,9 @@ export async function getActorRunResults(actorId: string, runId: string): Promis
     }
 
     try {
-        const { items } = await apifyClient.actor(actorId).lastRun().dataset().listItems();
+        const run = apifyClient.run(runId);
+        const dataset = run.dataset();
+        const { items } = await dataset.listItems();
         return items;
     } catch (error) {
         console.error(`Failed to get results for actor ${actorId} run ${runId}:`, error);
@@ -79,11 +82,27 @@ export async function getRunDetails(runId: string) {
     }
 }
 
-// Validate Apify webhook signature (basic verification)
+// Validate Apify webhook signature.
+// Supports the simple secret header used in this service and common Apify signature formats.
 export function validateApifyWebhook(payload: string, signature: string | undefined): boolean {
-    if (!apifyWebhookSecret || !signature) {
+    if (!apifyWebhookSecret) {
+        return true;
+    }
+
+    if (!signature) {
         return false;
     }
-    // Apify uses a simple comparison - in production, use crypto for constant-time comparison
-    return signature === apifyWebhookSecret;
+
+    const expectedPlain = Buffer.from(apifyWebhookSecret);
+    const receivedPlain = Buffer.from(signature);
+
+    if (expectedPlain.length === receivedPlain.length && crypto.timingSafeEqual(expectedPlain, receivedPlain)) {
+        return true;
+    }
+
+    const hmac = crypto.createHmac('sha256', apifyWebhookSecret).update(payload).digest('hex');
+    const expectedHmac = Buffer.from(hmac);
+    const receivedHmac = Buffer.from(signature.replace(/^sha256=/, ''));
+
+    return expectedHmac.length === receivedHmac.length && crypto.timingSafeEqual(expectedHmac, receivedHmac);
 }
